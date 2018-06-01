@@ -6,7 +6,6 @@ datetime
 hmac
 pandas
 colorama
-sys
 csv
 pandas
 numpy
