@@ -10,4 +10,3 @@ pandas
 numpy
 tabulate
 pytz
-more-itertools
