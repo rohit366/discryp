@@ -2,7 +2,7 @@ asyncio
 requests
 discord
 aiohttp
-urllib.request
+urllib
 time
 datetime
 hmac
