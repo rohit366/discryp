@@ -25,16 +25,12 @@ import itertools
 import traceback
 
 
-'''
-# cd Desktop\My Work\Crypto FIles\Development\Crypto Account Info
-# python "discord example.py"
-bot ID: 440818259479101450
-bot Secret: 8rf2osM9zhX0O4d0-oVF7-RfuQy4vGC7
-Username: cryptobot#1341
-Token: NDQwODE4MjU5NDc5MTAxNDUw.De5y9A.2X-0SMxQloqi6x9QahXZr5XYktk
-https://discordapp.com/developers/applications/me
-https://discordapp.com/api/oauth2/authorize?bot_id=440818259479101450&scope=bot
-'''
+api = os.environ["RIOT_KEY"]
+wu_key = os.environ['WU_API']
+owm = os.environ['open_weather']
+img_api = os.environ['img_api']
+apiai_token = os.environ['api_ai']
+bot_token = os.environ['BOT_TOKEN']
 
 
 #TOKEN = ''
