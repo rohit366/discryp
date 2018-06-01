@@ -2,7 +2,6 @@ asyncio
 requests
 discord
 aiohttp
-time
 datetime
 hmac
 hashlib
