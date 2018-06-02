@@ -1,1 +1,1 @@
-worker: python discryp.py
+worker: python bot.py
