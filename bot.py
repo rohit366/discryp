@@ -1,29 +1,26 @@
-import random
-import asyncio
-import requests
-import discord
-from discord.ext.commands import Bot
-from discord.ext import commands
-import aiohttp
-from os.path import expanduser
 import urllib.request
+import requests
 import time
 import datetime
 import hmac
 import hashlib
 import json
-from pandas.io.json import json_normalize
-from colorama import init, Fore, Back, Style
-init(convert=True)
 import sys
 import csv
 import pandas as pd
+from pandas.io.json import json_normalize
 import numpy as np
-from tabulate import tabulate
 import pytz
 import itertools
-import traceback
-
+from colorama import init, Fore, Back, Style
+from tabulate import tabulate
+init(convert=True)
+import discord
+import asyncio
+import aiohttp
+import random
+from discord.ext.commands import Bot
+from discord.ext import commands
 
 api_key = os.environ["API_KEY"]
 api_secret = os.environ["API_SECRET"]
