@@ -26,14 +26,14 @@ api_key = os.environ["API_KEY"]
 api_secret = os.environ["API_SECRET"]
 bot_token = os.environ['BOT_TOKEN']
 
-bot = commands.Bot(command_prefix='+', description='A bot that greets the user back.')
+bot = commands.Bot(command_prefix='+')
 
 
 @bot.event
 async def on_ready():
-    print('I M Online! & testing')
+    print('I M Online!')
     print('---------------')
-    print('Logged in as')
+    print('Testing the bot')
     print(bot.user.name)
     print('---------------')
 
@@ -52,28 +52,69 @@ async def on_message(message):
     if msg.startswith('+'):
         response = None
         cmd = words[0][1:]
-        if cmd == "lms":
+        if cmd == "portfolio":
+            try:
+                my_balances = GetPrivateRequestForBittrex("https://bittrex.com/api/v1.1/account/getbalances", api_key, api_secret)
+                my_balances_data = json.dumps(my_balances)
+                balance_data = pd.read_json(my_balances_data, orient='records')
+                balance_df = pd.DataFrame(balance_data)
+                alist = balance_df.loc[balance_df['Available'] > 0, 'Available'].tolist()
+                my_orders = GetPrivateRequestForBittrex("https://bittrex.com/api/v1.1/account/getorderhistory", api_key, api_secret)
+                my_orders_data = json.dumps(my_orders)
+                order_data = pd.read_json(my_orders_data, orient='records')
+                order_df = pd.DataFrame(order_data)
+                mask = order_df[order_df['Quantity'].isin(alist)]
+                mask_df = pd.DataFrame(mask)
+                mask_df['Closed'] = pd.to_datetime(mask_df['Closed']).replace(to_replace=['-'], value='/', inplace=False).apply(lambda x: x.strftime('%d/%h/%Y'))
+                My_port = mask_df.loc[:, ['Exchange', 'OrderType', 'Limit', 'Quantity', 'Commission', 'PricePerUnit', 'Price', 'Closed']]
+                cur_price = []
+                pairs = []
+                for pair in mask_df['Exchange']:
+                    if pair is not None:
+                        coin = last_price = GetPublicRequestFromBittrex("https://bittrex.com/api/v1.1/public/getticker?market=" + pair)['Last']
+                        cur_price.append(coin)
+                        pairs.append(pair)
+                    else:
+                        print("Either You Have Open Orders Or You Don't Have Any Coins")
+                data_tuples = list(zip(pairs, cur_price))
+                cp_df = pd.DataFrame(data_tuples, columns=['Exchange', 'Price_Now'])
+                pfoli_df = pd.merge(mask_df, cp_df, on='Exchange')
+                btc_price = json.loads(urllib.request.urlopen("https://blockchain.info/ticker").read())['USD']['last']
+                pfoli_df['perc_diff'] = (((pfoli_df['Price_Now'] - pfoli_df['Limit']) / pfoli_df['Price_Now']) * 100).round(2).apply(lambda x: str(x) + '%')
+                pfoli_df['SCom'] = ((pfoli_df['Quantity'] * pfoli_df['Price_Now']) * 0.00250006534).round(8)
+                pfoli_df['If_Sold_Now'] = ((pfoli_df['Quantity'] * pfoli_df['Price_Now']) - pfoli_df['SCom'])
+                pfoli_df['BTC_P&L'] = ((pfoli_df['Quantity'] * pfoli_df['Price_Now']) - pfoli_df['Price'])
+                pfoli_df['USD_P&L'] = (pfoli_df['BTC_P&L'] * btc_price).round(2).apply(lambda x: str(x) + '$')
+                myport = pfoli_df.loc[:, ['Exchange', 'Limit', 'Price_Now', 'Quantity', 'Price', 'If_Sold_Now', 'perc_diff', 'SCom', 'BTC_P&L', 'USD_P&L']]
+                for i in range(len(myport.index)):
+                    coin = myport['Exchange'].iloc[i]
+                    lm = myport['Limit'].iloc[i]
+                    pn = myport['Price_Now'].iloc[i]
+                    qun = myport['Quantity'].iloc[i]
+                    pri = myport['Price'].iloc[i]
+                    isn = myport['If_Sold_Now'].iloc[i]
+                    p_d = myport['perc_diff'].iloc[i]
+                    scm = myport['SCom'].iloc[i]
+                    bpl = myport['BTC_P&L'].iloc[i]
+                    upl = myport['USD_P&L'].iloc[i]
+                    msg = ("Coin: **{}**\n" "At Limit: **{:.8f}**\n" "Price Now: **{:.8f}**\n" "Quantity: **{:.2f}**\n" "Price: **{:.8f}**\n" "If Sold Now: **{:.8f}**\n" "Per Diff: **{}**\n" "Commission On Sell: **{:.8f}**\n" "BTC P&L: **{:.8f}**\n" "USD P&L: **{}**\n".format(coin, lm, pn, qun, pri, isn, p_d, scm, bpl, upl))
+                    embed = discord.Embed(title="Live Portfolio", description=msg, color=discord.Color.green())
+                    await bot.send_message(channel, embed=embed)
+            except:
+                err = fmtError("The `+port` command is not working")
+                await bot.send_message(channel, embed=err)
+                return
+
+        if cmd == "markets":
             try:
                 a = words[1]
-                print(a)
                 b = words[2]
-                print(b)
                 c = words[3]
-                print(c)
                 while True:
-                    print("i am here")
                     sr = float(a)
-                    print(">>>>>")
                     pr = float(sr / 100000000)
-                    print(">>>>>")
                     xp = float(b)
-                    print(">>>>>")
                     xr = float(c)
-                    print(sr)
-                    print(pr)
-                    print(xp)
-                    print(xr)
-                    print("Starting further processing")
                     btc_price = json.loads(urllib.request.urlopen("https://blockchain.info/ticker").read())['USD']['last']
                     bittrex_market_data = GetPublicRequestFromBittrex("https://bittrex.com/api/v1.1/public/getmarketsummaries")
                     market_data = json.dumps(bittrex_market_data)
@@ -84,7 +125,6 @@ async def on_message(message):
                     live_market_df.OpenBuyOrders = live_market_df.OpenBuyOrders.astype(float)
                     live_market_df.OpenSellOrders = live_market_df.OpenSellOrders.astype(float)
                     mark = live_market_df.rename(index=str, columns={"MarketName": "Coin", "BaseVolume": "Vol", "OpenBuyOrders": "Open_Buy", "OpenSellOrders": "Open_Sell"})
-                    print("blah blah")
                     sig = []
                     for index, row in live_market_df.iterrows():
                         if row['OpenBuyOrders'] <= row['OpenSellOrders']:
@@ -97,8 +137,7 @@ async def on_message(message):
                     mark1['Vol'] = mark1['Vol'].round(2)
                     bt_pr = ("Current BTC Price: $ **{:.2f}**".format(btc_price))
                     lmsd = mark1.loc[:, ['Coin', 'Last', 'High', 'D_Cng', 'Vol', 'Low', 'Ask', 'Bid', 'Open_Buy', 'Open_Sell', 'Signal']]
-                    print("trying the print btc price")
-                    embd = discord.Embed(title="BTC Prices", description=bt_pr, colour=0xFF9900)
+                    embd = discord.Embed(title="BTC Prices", description=bt_pr, color=discord.Color.green())
                     await bot.send_message(channel, embed=embd)
                     for i in range(len(lmsd.index)):
                         coin = lmsd['Coin'].iloc[i]
@@ -113,8 +152,7 @@ async def on_message(message):
                         os = lmsd['Open_Sell'].iloc[i]
                         sgn = lmsd['Signal'].iloc[i]
                         msg = ("Coin: **{}**\n" "Last Was: **{:.8f}**\n" "24 Hr High: **{:.8f}**\n" "Daily Change: **{}**\n" "Cur Vol: **{:.2f}**\n" "Low Was: **{:.8f}**\n" "Cur Ask: **{:.8f}**\n" "Cur Bid: **{:.8f}**\n" "Open Buy: **{:.0f}**\n" "Open Sell: **{:.0f}**\n" "Signal: **{}**\n".format(coin, last, high, dcng, vol, low, ask, bid, ob, os, sgn))
-                        emb = discord.Embed(title="Live Market Summary", description=msg, colour=0xFF9900)
-                        print("trying to print the pandas data")
+                        emb = discord.Embed(title="Live Market Summary", description=msg, color=discord.Color.green())
                         await bot.send_message(channel, embed=emb)
                     await asyncio.sleep(180)
             except:
@@ -122,7 +160,7 @@ async def on_message(message):
                 await bot.send_message(channel, embed=err)
                 return
 
-        elif cmd == "bal":
+        elif cmd == "balances":
             try:
                 btc_price = json.loads(urllib.request.urlopen("https://blockchain.info/ticker").read())['USD']['last']
                 my_balances = GetPrivateRequestForBittrex("https://bittrex.com/api/v1.1/account/getbalances", api_key, api_secret)
@@ -148,11 +186,8 @@ async def on_message(message):
                 mybal = pfoli_df.loc[:, ['Currency', 'Available', 'Price_Now', 'BTC_On_Sell', 'USD_On_Sell']]
                 mybal.USD_On_Sell = mybal.USD_On_Sell.astype(str)
                 bt_pr = ("Current BTC Price: $ **{:.2f}**".format(btc_price))
-                emb = discord.Embed(title="BTC Prices", description=bt_pr, colour=0xFF9900)
+                emb = discord.Embed(title="BTC Prices", description=bt_pr, color=discord.Color.green())
                 await bot.send_message(channel, embed=emb)
-                #table = mybal.to_html(classes='table', index=False, escape=False)
-                #em = discord.Embed(title="Balances", description=table, colour=0xFF9900)
-                # await bot.send_message(channel, embed=em)
                 for i in range(len(mybal.index)):
                     coin = mybal['Currency'].iloc[i]
                     amt = mybal['Available'].iloc[i]
@@ -160,14 +195,14 @@ async def on_message(message):
                     bamt = mybal['BTC_On_Sell'].iloc[i]
                     damt = mybal['USD_On_Sell'].iloc[i]
                     msg = ("Coin: **{}**\n" "Available Balance: **{:.2f}**\n" "Current Price: **{:.8f}**\n" "BTC on sell: **{:.8f}**\n" "USD on sell: **{}**\n".format(coin, amt, pn, bamt, damt))
-                    em = discord.Embed(title="Balances", description=msg, colour=0xFF9900)
+                    em = discord.Embed(title="Balances", description=msg, color=discord.Color.green())
                     await bot.send_message(channel, embed=em)
             except:
                 errs = fmtError("The `+bal` command is not working")
                 await bot.send_message(channel, embed=errs)
                 return
 
-        elif cmd == "mob":
+        elif cmd == "orders":
             try:
                 btc_price = json.loads(urllib.request.urlopen("https://blockchain.info/ticker").read())['USD']['last']
                 my_orders = GetPrivateRequestForBittrex("https://bittrex.com/api/v1.1/account/getorderhistory", api_key, api_secret)
@@ -179,7 +214,7 @@ async def on_message(message):
                 order_data_1 = order_df.loc[:, ['Exchange', 'OrderType', 'Limit', 'Quantity', 'Commission', 'PricePerUnit', 'Price', 'Closed']].sort_values('Quantity', ascending=True)
                 obk = order_data_1.loc[:, ['Exchange', 'OrderType', 'Limit', 'Quantity', 'Commission', 'PricePerUnit', 'Price', 'Closed']]
                 bt_pr = ("Current BTC Price: $ **{:.2f}**".format(btc_price))
-                emb = discord.Embed(title="BTC Prices", description=bt_pr, colour=0xFF9900)
+                emb = discord.Embed(title="BTC Prices", description=bt_pr, color=discord.Color.green())
                 await bot.send_message(channel, embed=emb)
                 for i in range(len(obk.index)):
                     coin = obk['Exchange'].iloc[i]
@@ -191,18 +226,77 @@ async def on_message(message):
                     pri = obk['Price'].iloc[i]
                     cld = obk['Closed'].iloc[i]
                     msg = ("Coin: **{}**\n" "Order Type: **{}**\n" "At Limit: **{:.8f}**\n" "Quantity Was: **{:.2f}**\n" "Commission Paid: **{:.8f}**\n" "PPU Was: **{:.8f}**\n" "Final Price Was: **{:.8f}**\n" "On Date: **{}**\n".format(coin, ot, lm, qun, comm, ppu, pri, cld))
-                    em = discord.Embed(title="My Order Book", description=msg, colour=0xFF9900)
+                    em = discord.Embed(title="My Order Book", description=msg, color=discord.Color.dark_gold())
                     await bot.send_message(channel, embed=em)
             except:
                 errs = fmtError("The `+mob` command is not working")
                 await bot.send_message(channel, embed=errs)
                 return
 
+        elif cmd == "openor":
+            try:
+                btc_price = json.loads(urllib.request.urlopen("https://blockchain.info/ticker").read())['USD']['last']
+                open_orders = GetPrivateRequestForBittrex("https://bittrex.com/api/v1.1/market/getopenorders", api_key, api_secret)
+                open_orders_data = json.dumps(open_orders)
+                oorder_data = pd.read_json(open_orders_data, orient='records')
+                oorder_df = pd.DataFrame(oorder_data)
+                olist = oorder_df['Exchange'].tolist()
+                ocur_price = []
+                opairs = []
+                for opair in olist:
+                    if opair is not None:
+                        ocoin = last_price = GetPublicRequestFromBittrex("https://bittrex.com/api/v1.1/public/getticker?market=" + opair)['Last']
+                        ocur_price.append(ocoin)
+                        opairs.append(opair)
+                    else:
+                        ermsg = "Either You Have No Open Orders Or You Don't Have Any Coins"
+                        em = discord.Embed(title="Live Portfolio", description=ermsg, color=discord.Color.magenta())
+                        await bot.send_message(channel, embed=em)
+                odata_tuples = list(zip(opairs, ocur_price))
+                ooo_df = pd.DataFrame(odata_tuples, columns=['Exchange', 'Price Now'])
+                oo_df = pd.merge(oorder_df, ooo_df, on='Exchange')
+                if not oo_df.empty:
+                    oo_df['Opened'] = pd.to_datetime(oo_df['Opened']).replace(to_replace=['-'], value='/', inplace=False).apply(lambda x: x.strftime('%d/%h/%Y'))
+                    oo_df['Away'] = (((oo_df['Price Now'] - oo_df['Limit']) / oo_df['Price Now']) * 100).round(2).apply(lambda x: str(x) + '%')
+                    oorder_data_1 = oo_df[oo_df.Opened.notnull()].loc[:, ['Exchange', 'Limit', 'Quantity', 'Opened', 'Price Now', 'Away']]
+                    for i in range(len(oorder_data_1.index)):
+                        coin = oorder_data_1['Exchange'].iloc[i]
+                        lm = oorder_data_1['Limit'].iloc[i]
+                        qun = oorder_data_1['Quantity'].iloc[i]
+                        opn = oorder_data_1['Opened'].iloc[i]
+                        pn = oorder_data_1['Price Now'].iloc[i]
+                        pri = oorder_data_1['Away'].iloc[i]
+                        msg = ("Coin: **{}**\n" "At Limit: **{:.8f}**\n" "Quantity: **{:.2f}**\n" "Opened On: **{}**\n" "Price Now: **{:.8f}**\n" "Away: **{}**\n".format(coin, lm, qun, opn, pn, pri))
+                        em = discord.Embed(title="Open Orders", description=msg, color=discord.Color.magenta())
+                        await bot.send_message(channel, embed=em)
+                else:
+                    ermsgg = "you dont have any open orders"
+                    emm = discord.Embed(title="Open Orders", description=ermsgg, color=discord.Color.red())
+                    await bot.send_message(channel, embed=emm)
+            except:
+                errss = fmtError("The `+opor` command is not working")
+                await bot.send_message(channel, embed=errss)
+                return
+
+        elif cmd == "help":
+            try:
+                msg1 = ("The Commands Are\n" "+markets\n" "+balances\n" "+orders\n" "+openor\n" "+portfolio\n")
+                em1 = discord.Embed(title="Commands", description=msg1, color=discord.Color.dark_gold())
+                await bot.send_message(channel, embed=em1)
+            except:
+                errs = fmtError("The `+help` command is not working")
+                await bot.send_message(channel, embed=errs)
+                return
+
+        else:
+            errs = fmtError("The `+port` command is not working")
+            await bot.send_message(channel, embed=errs)
+            return
+
 
 def fmtError(error):
     embed = discord.Embed(title="There was an error", description=error, color=0xFF9900)
     embed.set_footer(text="For more information about rohit's bot, type +help")
-
     return embed
 
 
