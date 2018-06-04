@@ -374,4 +374,3 @@ def GetLastPriceFromBittrex(market, debug=False):
     return last_price
 
 bot.run(bot_token)
-#bot.run(TOKEN)
