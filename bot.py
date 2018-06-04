@@ -22,8 +22,8 @@ import random
 from discord.ext.commands import Bot
 from discord.ext import commands
 
-api_key = os.environ["API_KEY"]
-api_secret = os.environ["API_SECRET"]
+api_key = os.environ['API_KEY']
+api_secret = os.environ['API_SECRET']
 bot_token = os.environ['BOT_TOKEN']
 
 bot = commands.Bot(command_prefix='+')
